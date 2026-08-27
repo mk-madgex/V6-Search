@@ -301,17 +301,65 @@ input[type="checkbox"] {
   border-radius: var(--radius);
 }
 
-.facet-option {
-  justify-content: space-between;
+.facet-options--tree {
+  gap: 8px;
 }
 
-.facet-option > span:first-of-type {
+.facet-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.facet-children {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 16px;
+}
+
+.facet-branch.is-open > .facet-children {
+  display: flex;
+}
+
+.facet-option label {
+  display: flex;
   flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.facet-option--parent {
+  align-items: flex-start;
+}
+
+.facet-expand {
+  display: flex;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 4px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.facet-expand img {
+  width: 14px;
+  height: 14px;
 }
 
 .facet-count {
+  flex: none;
   color: var(--muted);
   font-size: 14px;
+  line-height: 22px;
 }
 
 .pending-note {

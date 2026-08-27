@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const { jobs, facets, locations } = window.SEARCH_DATA;
+  const { jobs, facets, locations, taxonomies = {} } = window.SEARCH_DATA;
   const pageSize = 5;
   const state = {
     criteria: {
@@ -14,6 +14,7 @@
     selected: Object.fromEntries(facets.map(({ key }) => [key, new Set()])),
     draftSelected: Object.fromEntries(facets.map(({ key }) => [key, new Set()])),
     expanded: new Set(["sector"]),
+    branchOpen: new Set(["sector:Healthcare", "jobTitle:Scientist"]),
     saved: new Set(),
     page: 1
   };
@@ -38,6 +39,31 @@
   const facetValues = Object.fromEntries(
     facets.map(({ key }) => [key, [...new Set(jobs.map((job) => job[key]))].sort()])
   );
+
+  function taxonomyFor(key) {
+    return taxonomies[key] || null;
+  }
+
+  function leavesForParent(key, parentLabel) {
+    return taxonomyFor(key)?.find((node) => node.label === parentLabel)?.children || [];
+  }
+
+  function parentForLeaf(key, leaf) {
+    return taxonomyFor(key)?.find((node) => node.children.includes(leaf))?.label || null;
+  }
+
+  function leafCount(key, leaf, candidates) {
+    return candidates.filter((job) => job[key] === leaf).length;
+  }
+
+  function parentCount(key, parentLabel, candidates) {
+    const leaves = new Set(leavesForParent(key, parentLabel));
+    return candidates.filter((job) => leaves.has(job[key])).length;
+  }
+
+  function isLeafSelected(key, leaf) {
+    return state.draftSelected[key].has(leaf) || state.selected[key].has(leaf);
+  }
 
   function escapeHtml(value) {
     return String(value)
@@ -75,7 +101,8 @@
     const { criteria } = state;
     const words = criteria.keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const haystack = [
-      job.title, job.company, job.summary, job.sector, job.jobTitle, job.location
+      job.title, job.company, job.summary, job.sector, job.jobTitle, job.location,
+      parentForLeaf("sector", job.sector), parentForLeaf("jobTitle", job.jobTitle)
     ].join(" ").toLowerCase();
 
     if (!words.every((word) => haystack.includes(word))) return false;
@@ -158,22 +185,68 @@
       state.selected[key] = new Set(state.draftSelected[key]);
     });
   }
+  function renderFlatOptions(key, candidates) {
+    return facetValues[key].map((value) => {
+      const count = leafCount(key, value, candidates);
+      const selected = isLeafSelected(key, value);
+      if (count === 0 && !selected) return "";
+      return renderLeafOption(key, value, count, selected);
+    }).join("");
+  }
+
+  function renderLeafOption(key, value, count, selected) {
+    return `
+      <label class="facet-option">
+        <input type="checkbox" data-facet="${escapeHtml(key)}" data-leaf="${escapeHtml(value)}" value="${escapeHtml(value)}" ${selected ? "checked" : ""}>
+        <span>${escapeHtml(value)}</span>
+        <span class="facet-count">${count}</span>
+      </label>`;
+  }
+
+  function renderTreeOptions(key, candidates) {
+    return taxonomyFor(key).map((node) => {
+      const childMarkup = node.children.map((leaf) => {
+        const count = leafCount(key, leaf, candidates);
+        const selected = isLeafSelected(key, leaf);
+        if (count === 0 && !selected) return "";
+        return renderLeafOption(key, leaf, count, selected);
+      }).join("");
+
+      const count = parentCount(key, node.label, candidates);
+      const selectedLeaves = node.children.filter((leaf) => isLeafSelected(key, leaf));
+      if (count === 0 && selectedLeaves.length === 0) return "";
+
+      const allSelected = node.children.every((leaf) => isLeafSelected(key, leaf));
+      const someSelected = selectedLeaves.length > 0;
+      const open = state.branchOpen.has(`${key}:${node.label}`);
+      const icon = open ? "assets/triangle-down.svg" : "assets/triangle-right.svg";
+      const iconAlt = open ? "Collapse" : "Expand";
+
+      return `
+        <div class="facet-branch${open ? " is-open" : ""}" data-branch="${escapeHtml(key)}:${escapeHtml(node.label)}">
+          <div class="facet-option facet-option--parent">
+            <label>
+              <input type="checkbox" data-facet="${escapeHtml(key)}" data-parent="${escapeHtml(node.label)}" ${allSelected ? "checked" : ""} ${someSelected && !allSelected ? "data-indeterminate=\"true\"" : ""}>
+              <span>${escapeHtml(node.label)}</span>
+              <span class="facet-count">${count}</span>
+            </label>
+            <button class="facet-expand" type="button" data-toggle-branch="${escapeHtml(key)}:${escapeHtml(node.label)}" aria-expanded="${open}" aria-label="${iconAlt} ${escapeHtml(node.label)}">
+              <img src="${icon}" alt="" width="14" height="14">
+            </button>
+          </div>
+          <div class="facet-children">${childMarkup}</div>
+        </div>`;
+    }).join("");
+  }
+
   function renderFacets() {
     const markup = facets.map(({ key, label }) => {
       const candidates = filteredJobs(key);
-      const options = facetValues[key].map((value) => {
-        const count = candidates.filter((job) => job[key] === value).length;
-        const selected = state.draftSelected[key].has(value) || state.selected[key].has(value);
-        if (count === 0 && !selected) return "";
-        return `
-          <label class="facet-option">
-            <input type="checkbox" data-facet="${escapeHtml(key)}" value="${escapeHtml(value)}" ${selected ? "checked" : ""}>
-            <span>${escapeHtml(value)}</span>
-            <span class="facet-count">${count}</span>
-          </label>`;
-      }).join("");
+      const options = taxonomyFor(key)
+        ? renderTreeOptions(key, candidates)
+        : renderFlatOptions(key, candidates);
 
-      if (!options) return "";
+      if (!options.trim()) return "";
       const selectedCount = state.draftSelected[key].size;
       const countMarkup = selectedCount
         ? `<span class="facet-selected-count" aria-label="${selectedCount} selected">${selectedCount} selected</span>`
@@ -184,11 +257,33 @@
             <span class="facet-label">${escapeHtml(label)}</span>
             ${countMarkup}
           </summary>
-          <div class="facet-options">${options}</div>
+          <div class="facet-options${taxonomyFor(key) ? " facet-options--tree" : ""}">${options}</div>
         </details>`;
     }).join("");
 
     elements.facetGroups.innerHTML = markup;
+    elements.facetGroups.querySelectorAll("input[data-indeterminate]").forEach((input) => {
+      input.indeterminate = true;
+    });
+  }
+
+  function compactSelection(key) {
+    const selected = state.selected[key];
+    const tree = taxonomyFor(key);
+    if (!tree) return [...selected].map((value) => ({ value, label: value, leaves: [value] }));
+
+    const chips = [];
+    const covered = new Set();
+    tree.forEach((node) => {
+      if (node.children.length && node.children.every((leaf) => selected.has(leaf))) {
+        chips.push({ value: node.label, label: node.label, leaves: [...node.children] });
+        node.children.forEach((leaf) => covered.add(leaf));
+      }
+    });
+    selected.forEach((value) => {
+      if (!covered.has(value)) chips.push({ value, label: value, leaves: [value] });
+    });
+    return chips;
   }
 
   function renderActiveFilters() {
@@ -206,8 +301,8 @@
     if (state.criteria.nationwide) filters.push({ type: "core", key: "nationwide", label: "Nationwide" });
     if (state.criteria.homeworking) filters.push({ type: "core", key: "homeworking", label: "Homeworking" });
     facets.forEach(({ key }) => {
-      state.selected[key].forEach((value) => {
-        filters.push({ type: "facet", key, value, label: value });
+      compactSelection(key).forEach((chip) => {
+        filters.push({ type: "facet", key, value: chip.value, leaves: chip.leaves, label: chip.label });
       });
     });
 
@@ -225,8 +320,11 @@
 
   function removeFilter(filter) {
     if (filter.type === "facet") {
-      state.selected[filter.key].delete(filter.value);
-      state.draftSelected[filter.key].delete(filter.value);
+      const leaves = filter.leaves || [filter.value];
+      leaves.forEach((leaf) => {
+        state.selected[filter.key].delete(leaf);
+        state.draftSelected[filter.key].delete(leaf);
+      });
     } else if (filter.key === "keyword") {
       state.criteria.keyword = "";
       elements.keyword.value = "";
@@ -371,14 +469,53 @@
     else state.expanded.delete(details.dataset.group);
   }, true);
 
+  elements.facetGroups.addEventListener("click", (event) => {
+    const toggle = event.target.closest("[data-toggle-branch]");
+    if (!toggle) return;
+    event.preventDefault();
+    const branchId = toggle.dataset.toggleBranch;
+    const branch = toggle.closest(".facet-branch");
+    const open = !state.branchOpen.has(branchId);
+    if (open) state.branchOpen.add(branchId);
+    else state.branchOpen.delete(branchId);
+    branch.classList.toggle("is-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", `${open ? "Collapse" : "Expand"} ${branchId.split(":")[1]}`);
+    toggle.querySelector("img").src = open ? "assets/triangle-down.svg" : "assets/triangle-right.svg";
+  });
+
   elements.facetGroups.addEventListener("change", (event) => {
     const input = event.target.closest("input[data-facet]");
     if (!input) return;
-    if (input.checked) state.draftSelected[input.dataset.facet].add(input.value);
-    else state.draftSelected[input.dataset.facet].delete(input.value);
-    updateFacetSelectedCount(input.dataset.facet);
+    const key = input.dataset.facet;
+    if (input.dataset.parent) {
+      leavesForParent(key, input.dataset.parent).forEach((leaf) => {
+        if (input.checked) state.draftSelected[key].add(leaf);
+        else state.draftSelected[key].delete(leaf);
+      });
+      syncParentCheckbox(key, input.dataset.parent);
+    } else {
+      if (input.checked) state.draftSelected[key].add(input.value);
+      else state.draftSelected[key].delete(input.value);
+      const parent = parentForLeaf(key, input.value);
+      if (parent) syncParentCheckbox(key, parent);
+    }
+    updateFacetSelectedCount(key);
     updatePendingNote();
   });
+
+  function syncParentCheckbox(key, parentLabel) {
+    const input = elements.facetGroups.querySelector(`input[data-facet="${key}"][data-parent="${parentLabel}"]`);
+    if (!input) return;
+    const leaves = leavesForParent(key, parentLabel);
+    const selectedCount = leaves.filter((leaf) => state.draftSelected[key].has(leaf)).length;
+    input.checked = selectedCount === leaves.length && leaves.length > 0;
+    input.indeterminate = selectedCount > 0 && selectedCount < leaves.length;
+    const branch = input.closest(".facet-branch");
+    branch?.querySelectorAll("input[data-leaf]").forEach((leafInput) => {
+      leafInput.checked = state.draftSelected[key].has(leafInput.value);
+    });
+  }
 
   elements.list.addEventListener("click", (event) => {
     const saveButton = event.target.closest("[data-save]");
