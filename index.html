@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Interactive job search prototype">
+    <title>IoRE Careers — Find a Job</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#results">Skip to job results</a>
+
+    <header class="site-header">
+      <div class="mobile-bar" aria-label="Mobile navigation">
+        <button class="icon-button" type="button" aria-label="Open menu">☰</button>
+        <span aria-hidden="true">☆</span>
+        <span aria-hidden="true">♟</span>
+      </div>
+      <div class="header-main">
+        <a class="brand" href="#" aria-label="IoRE Careers home">
+          <img class="brand-mark" src="assets/iore-mark.svg" alt="">
+          <img class="brand-name" src="assets/iore-name.svg" alt="IoRE">
+          <span class="brand-divider" aria-hidden="true"></span>
+          <img class="brand-careers" src="assets/careers.svg" alt="Careers">
+        </a>
+        <div class="account-links">
+          <a class="recruiter-button" href="#">Recruiters <span aria-hidden="true">▶</span></a>
+          <span>Jobseekers <a href="#">Login</a> or <a href="#">Register</a></span>
+        </div>
+      </div>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a href="#">Home</a>
+        <a class="active" href="#" aria-current="page">Find a Job</a>
+        <a href="#">Job Alerts</a>
+        <a href="#">Search Recruiters</a>
+        <a href="#">Career Advice</a>
+      </nav>
+    </header>
+
+    <main class="page-shell">
+      <h1 id="result-count" class="result-count" aria-live="polite">Find jobs</h1>
+
+      <div class="search-layout">
+        <aside class="filter-card" aria-label="Search filters">
+          <form id="search-form">
+            <div class="search-fields">
+              <label>
+                <span>Keyword search</span>
+                <input id="keyword" name="keyword" type="search" placeholder="e.g Laboratory Assistant">
+              </label>
+              <label>
+                <span>Location</span>
+                <input id="location" name="location" type="search" list="location-options" placeholder="e.g New York">
+                <datalist id="location-options"></datalist>
+              </label>
+              <label>
+                <span>Within</span>
+                <select id="distance" name="distance">
+                  <option value="5">5 miles</option>
+                  <option value="10">10 miles</option>
+                  <option value="20" selected>20 miles</option>
+                  <option value="50">50 miles</option>
+                  <option value="100">100 miles</option>
+                </select>
+              </label>
+              <label class="check-row">
+                <input id="nationwide" name="nationwide" type="checkbox">
+                <span>Nationwide</span>
+              </label>
+              <label class="check-row">
+                <input id="homeworking" name="homeworking" type="checkbox">
+                <span>Homeworking</span>
+              </label>
+            </div>
+
+            <div class="refine-heading">
+              <strong>Refine your search</strong>
+              <button id="clear-filters" class="text-button" type="button">Clear all</button>
+            </div>
+            <div id="facet-groups" class="facet-groups"></div>
+            <p id="pending-note" class="pending-note" role="status" hidden>
+              Filters changed. Select Update search to apply them.
+            </p>
+            <button class="update-button" type="submit">Update search</button>
+          </form>
+        </aside>
+
+        <section id="results" class="results-panel" aria-labelledby="results-heading">
+          <h2 id="results-heading">Job results</h2>
+          <div id="active-filters" class="active-filters" aria-label="Active filters"></div>
+          <div id="job-list" class="job-list"></div>
+          <nav id="pagination" class="pagination" aria-label="Job result pages"></nav>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <a class="footer-brand brand" href="#" aria-label="IoRE Careers home">
+        <img class="brand-mark" src="assets/iore-mark-white.svg" alt="">
+        <img class="brand-name" src="assets/iore-name-white.svg" alt="IoRE">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <img class="brand-careers" src="assets/careers-white.svg" alt="Careers">
+      </a>
+      <nav class="footer-links" aria-label="Legal">
+        <a href="#">About Us</a>
+        <a href="#">Contact Us</a>
+        <a href="#">Terms &amp; Conditions</a>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Accessibility Statement</a>
+        <a href="#">Cookie Settings</a>
+      </nav>
+      <p>Powered by <a href="#">Madgex Job Board Software</a></p>
+    </footer>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
